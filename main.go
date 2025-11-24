@@ -67,7 +67,7 @@ func (lr *linearRegression) standardize() {
 	variance := 0.0
 	for _, m := range lr.rawMileages {
 		diff := m - lr.meanMileage
-		variance = diff * diff
+		variance += diff * diff
 	}
 	lr.stdDevMileage = math.Sqrt(variance / float64(len(lr.rawMileages)))
 
@@ -78,10 +78,32 @@ func (lr *linearRegression) standardize() {
 	lr.prices = lr.rawPrices
 }
 
+func (lr *linearRegression) calculateError() (float64, float64, float64) {
+	t0error := 0.0
+	t1error := 0.0
+	totalLoss := 0.0
+
+	for i := 0; i < len(lr.mileages); i++ {
+		prediction := lr.theta0 + lr.theta1 * lr.mileages[i]
+		err := prediction - lr.prices[i]
+
+		t0error += err
+		t1error += err * lr.mileages[i]
+		totalLoss += math.Abs(err)
+	}
+	totalLoss /= float64(len(lr.mileages))
+
+	return t0error, t1error, totalLoss
+}
+
 
 func main() {
 	lr := createLinearRegerssion("data.csv")
 	for _, rawPrice := range lr.rawPrices {
 		fmt.Println(rawPrice)
 	}
+	t0, t1, err := lr.calculateError()
+	fmt.Println(t0)
+	fmt.Println(t1)
+	fmt.Println(err)
 }
