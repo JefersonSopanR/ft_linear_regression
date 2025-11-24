@@ -24,34 +24,52 @@ type linearRegression struct {
 }
 
 
-func createLinearRegerssion(filename string) *linearRegression {
+func createLinearRegerssion(filename string) (*linearRegression, error) {
 	lr := &linearRegression{
 		learningRate: 0.01,
 		theta0: 0.0,
 		theta1: 0.0,
 	}
-
-	lr.readData(filename)
+	if err := lr.readData(filename); err != nil {
+        return nil, err
+    }
 	lr.standardize()
 
-	return lr
+	return lr, nil
 }
 
-func (lr *linearRegression) readData(filename string) {
-	file, _ := os.Open(filename)
+func (lr *linearRegression) readData(filename string) error{
+	file, err := os.Open(filename)
+
+	if (err != nil) {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
 	defer file.Close()
 
 	reader:= csv.NewReader(file)
-	records, _ := reader.ReadAll()
+	records, err := reader.ReadAll()
+	if err != nil {
+		return fmt.Errorf("failed to read CSV: %w", err)
+	}
 
 	for _, record := range records[1:] {
-		mileage, _ := strconv.ParseFloat(record[0], 64)
-		price, _ := strconv.ParseFloat(record[1], 64)
+		if len(record) < 2 {
+            return fmt.Errorf("invalid record: %v", record)
+        }
+		fmt.Printf("mileage: %v, price: %v\n", record[0] , record[1])
+		mileage, err := strconv.ParseFloat(record[0], 64)
+		if err != nil {
+			return fmt.Errorf("invalid mileage: %v", record[0])
+		}
+		price, err := strconv.ParseFloat(record[1], 64)
+		if err != nil {
+			return fmt.Errorf("invalid price: %v", record[1])
+		}
 
 		lr.rawMileages = append(lr.rawMileages, mileage)
 		lr.rawPrices = append(lr.rawPrices, price)
 	}
-
+	return nil
 }
 
 func (lr *linearRegression) standardize() {
@@ -62,6 +80,8 @@ func (lr *linearRegression) standardize() {
 		sum += m
 	}
 	lr.meanMileage = sum / float64(len(lr.rawMileages))
+
+	fmt.Printf("mean mileage:  %v\n", lr.meanMileage)
 
 	// get the standar Deviation for the mileages -> by how the point are far from the mean on avarege
 	variance := 0.0
@@ -98,12 +118,18 @@ func (lr *linearRegression) calculateError() (float64, float64, float64) {
 
 
 func main() {
-	lr := createLinearRegerssion("data.csv")
+	lr, err := createLinearRegerssion("data.csv")
+	if err != nil {
+        fmt.Fprintln(os.Stderr, "Error:", err)
+        os.Exit(1)
+    }
+	/*
 	for _, rawPrice := range lr.rawPrices {
 		fmt.Println(rawPrice)
 	}
-	t0, t1, err := lr.calculateError()
+	*/
+	t0, t1, loss := lr.calculateError()
 	fmt.Println(t0)
 	fmt.Println(t1)
-	fmt.Println(err)
+	fmt.Println(loss)
 }
