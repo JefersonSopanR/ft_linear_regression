@@ -21,12 +21,14 @@ type linearRegression struct {
 
 	mileages []float64
 	prices []float64
+
+	lossAcc []float64
 }
 
 
 func createLinearRegerssion(filename string) (*linearRegression, error) {
 	lr := &linearRegression{
-		learningRate: 0.01,
+		learningRate: 0.001,
 		theta0: 0.0,
 		theta1: 0.0,
 	}
@@ -56,7 +58,6 @@ func (lr *linearRegression) readData(filename string) error{
 		if len(record) < 2 {
             return fmt.Errorf("invalid record: %v", record)
         }
-		fmt.Printf("mileage: %v, price: %v\n", record[0] , record[1])
 		mileage, err := strconv.ParseFloat(record[0], 64)
 		if err != nil {
 			return fmt.Errorf("invalid mileage: %v", record[0])
@@ -116,6 +117,45 @@ func (lr *linearRegression) calculateError() (float64, float64, float64) {
 	return t0error, t1error, totalLoss
 }
 
+func (lr *linearRegression) train() {
+	maxEpoch := 1000
+	tolerance := 1e-7
+
+	for epoch := 0; epoch < maxEpoch; epoch++ {
+		t0error, t1error, loss := lr.calculateError()
+		lr.theta0 -= t0error * lr.learningRate
+		lr.theta1 -= t1error * lr.learningRate
+		lr.lossAcc = append(lr.lossAcc, loss)
+
+		if len(lr.lossAcc) > 1 {
+			prev := lr.lossAcc[len(lr.lossAcc) - 2]
+			curr := lr.lossAcc[len(lr.lossAcc) - 1]
+			if math.Abs(curr - prev) < tolerance {
+				fmt.Printf("Converged at epoch %d (loss: %.6f)\n", epoch, loss)
+				break
+			}
+		}
+
+		if epoch%(maxEpoch/20) == 0 {
+			fmt.Printf("Epoch %d\tLoss: %.7f\n", epoch, loss)
+		}
+	}
+
+	// unscale thetas 
+	lr.theta1 /= lr.stdDevMileage
+	lr.theta0 -= lr.theta1 * lr.meanMileage
+}
+
+func (lr *linearRegression) storeThetas() error {
+	file, err := os.Create("thetas")
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+	fmt.Fprintf(file, "%f,%f", lr.theta0, lr.theta1)
+	return nil
+}
+
 
 func main() {
 	lr, err := createLinearRegerssion("data.csv")
@@ -123,13 +163,10 @@ func main() {
         fmt.Fprintln(os.Stderr, "Error:", err)
         os.Exit(1)
     }
-	/*
-	for _, rawPrice := range lr.rawPrices {
-		fmt.Println(rawPrice)
+	lr.train()
+	err1 := lr.storeThetas()
+	if err1 != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+        os.Exit(1)
 	}
-	*/
-	t0, t1, loss := lr.calculateError()
-	fmt.Println(t0)
-	fmt.Println(t1)
-	fmt.Println(loss)
 }
