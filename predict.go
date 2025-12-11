@@ -16,7 +16,7 @@ type model struct {
 func loadThetas() (*model, error) {
 	file, err := os.Open("thetas")
 	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
+		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close()
 
